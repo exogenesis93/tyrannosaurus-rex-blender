@@ -266,6 +266,97 @@ def setup_scene():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  ARMATURE / RIG
+#  34 bones: root → spine chain → head/jaw, tail chain, legs, vestigial arms.
+#  Bound to the mesh with Blender's Automatic Weights.
+#  Exports as a glTF skin inside the GLB — compatible with Unity, Unreal, etc.
+# ══════════════════════════════════════════════════════════════════════════════
+
+BONE_DEFS = [
+    # (name, head_xyz, tail_xyz, parent_name_or_None)
+
+    # Root & spine
+    ("Root",       ( 0.00,  0.00, 0.00), ( 0.00,  0.00, 0.20), None),
+    ("Hips",       ( 0.00, -0.20, 2.00), ( 0.00,  0.00, 2.50), "Root"),
+    ("Spine",      ( 0.00,  0.00, 2.50), ( 0.00,  0.70, 3.00), "Hips"),
+    ("Chest",      ( 0.00,  0.70, 3.00), ( 0.00,  1.30, 3.40), "Spine"),
+    ("Neck",       ( 0.00,  1.30, 3.40), ( 0.00,  2.00, 3.80), "Chest"),
+    ("Head",       ( 0.00,  2.00, 3.80), ( 0.00,  2.70, 4.10), "Neck"),
+    ("Snout",      ( 0.00,  2.70, 4.00), ( 0.00,  3.60, 3.85), "Head"),
+    ("Jaw",        ( 0.00,  2.30, 3.75), ( 0.00,  3.20, 3.50), "Head"),
+
+    # Tail chain
+    ("Tail1",      ( 0.00, -0.60, 2.20), ( 0.00, -1.60, 2.15), "Hips"),
+    ("Tail2",      ( 0.00, -1.60, 2.15), ( 0.00, -2.90, 1.85), "Tail1"),
+    ("Tail3",      ( 0.00, -2.90, 1.85), ( 0.00, -4.10, 1.50), "Tail2"),
+    ("Tail4",      ( 0.00, -4.10, 1.50), ( 0.00, -5.10, 1.10), "Tail3"),
+    ("Tail5",      ( 0.00, -5.10, 1.10), ( 0.00, -5.90, 0.80), "Tail4"),
+
+    # Left leg
+    ("ThighL",     ( 0.90, -0.30, 2.00), ( 0.90,  0.00, 1.10), "Hips"),
+    ("ShinL",      ( 0.90,  0.00, 1.10), ( 0.90,  0.42, 0.25), "ThighL"),
+    ("FootL",      ( 0.90,  0.42, 0.25), ( 0.90,  0.80, 0.10), "ShinL"),
+    ("ToeL0",      ( 0.74,  0.80, 0.10), ( 0.74,  1.05, 0.05), "FootL"),
+    ("ToeL1",      ( 0.90,  0.80, 0.10), ( 0.90,  1.08, 0.05), "FootL"),
+    ("ToeL2",      ( 1.06,  0.80, 0.10), ( 1.06,  1.05, 0.05), "FootL"),
+
+    # Right leg
+    ("ThighR",     (-0.90, -0.30, 2.00), (-0.90,  0.00, 1.10), "Hips"),
+    ("ShinR",      (-0.90,  0.00, 1.10), (-0.90,  0.42, 0.25), "ThighR"),
+    ("FootR",      (-0.90,  0.42, 0.25), (-0.90,  0.80, 0.10), "ShinR"),
+    ("ToeR0",      (-0.74,  0.80, 0.10), (-0.74,  1.05, 0.05), "FootR"),
+    ("ToeR1",      (-0.90,  0.80, 0.10), (-0.90,  1.08, 0.05), "FootR"),
+    ("ToeR2",      (-1.06,  0.80, 0.10), (-1.06,  1.05, 0.05), "FootR"),
+
+    # Left arm (vestigial)
+    ("UpperArmL",  ( 0.70,  1.75, 2.85), ( 0.78,  1.98, 2.60), "Chest"),
+    ("LowerArmL",  ( 0.78,  1.98, 2.60), ( 0.82,  2.15, 2.40), "UpperArmL"),
+    ("FingerL0",   ( 0.74,  2.15, 2.40), ( 0.74,  2.30, 2.35), "LowerArmL"),
+    ("FingerL1",   ( 0.87,  2.15, 2.40), ( 0.87,  2.30, 2.35), "LowerArmL"),
+
+    # Right arm (vestigial)
+    ("UpperArmR",  (-0.70,  1.75, 2.85), (-0.78,  1.98, 2.60), "Chest"),
+    ("LowerArmR",  (-0.78,  1.98, 2.60), (-0.82,  2.15, 2.40), "UpperArmR"),
+    ("FingerR0",   (-0.74,  2.15, 2.40), (-0.74,  2.30, 2.35), "LowerArmR"),
+    ("FingerR1",   (-0.87,  2.15, 2.40), (-0.87,  2.30, 2.35), "LowerArmR"),
+]
+
+
+def build_rig(trex):
+    """Create the armature, place all bones, and bind the mesh via automatic weights."""
+    arm_data = bpy.data.armatures.new("TRex_Armature")
+    arm_obj  = bpy.data.objects.new("TRex_Rig", arm_data)
+    bpy.context.collection.objects.link(arm_obj)
+
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.context.view_layer.objects.active = arm_obj
+    arm_obj.select_set(True)
+    bpy.ops.object.mode_set(mode='EDIT')
+
+    created = {}
+    for name, head, tail, parent in BONE_DEFS:
+        b = arm_data.edit_bones.new(name)
+        b.head        = head
+        b.tail        = tail
+        b.use_connect = False
+        if parent:
+            b.parent = created[parent]
+        created[name] = b
+
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # Bind mesh to armature — Automatic Weights fills in vertex groups per bone
+    bpy.ops.object.select_all(action='DESELECT')
+    trex.select_set(True)
+    arm_obj.select_set(True)
+    bpy.context.view_layer.objects.active = arm_obj
+    bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+
+    print(f"[T-Rex] Rig built — {len(BONE_DEFS)} bones, automatic weights applied.")
+    return arm_obj
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  GLB EXPORT
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -297,6 +388,8 @@ setup_scene()
 trex = build_trex()
 mat  = build_material()
 trex.data.materials.append(mat)
+
+rig  = build_rig(trex)
 
 path = export_glb()
 print(f"[T-Rex] Done.  GLB → {path}")
