@@ -1,0 +1,18 @@
+# Blender auto-save and backup files
+*.blend1
+*.blend2
+
+# Blender temp files
+/autosave/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Rendered output (large, shouldn't be in git)
+/render/
+*.png
+*.jpg
+*.exr
+*.mp4
